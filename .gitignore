@@ -1,0 +1,29 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.pdb
+*.exe
+.vs/
+
+# Node.js (frontend)
+node_modules/
+.next/
+out/
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+appsettings.*.local.json
+
+# IDE
+.idea/
+*.swp
+*.swo

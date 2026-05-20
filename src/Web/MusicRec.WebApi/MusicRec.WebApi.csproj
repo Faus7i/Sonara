@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\Infrastructure\MusicRec.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Spotify\MusicRec.Spotify.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\MusicRec.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Catalog\MusicRec.Catalog.csproj" />
+    <ProjectReference Include="..\..\Modules\AudioFeatures\MusicRec.AudioFeatures.csproj" />
+    <ProjectReference Include="..\..\Modules\Search\MusicRec.Search.csproj" />
+  </ItemGroup>
+
+</Project>
