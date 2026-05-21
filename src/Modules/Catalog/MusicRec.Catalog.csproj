@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Infrastructure\MusicRec.Infrastructure.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Shared\MusicRec.Shared.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Spotify\MusicRec.Spotify.csproj" />
+    <ProjectReference Include="..\AudioFeatures\MusicRec.AudioFeatures.csproj" />
   </ItemGroup>
 
 </Project>

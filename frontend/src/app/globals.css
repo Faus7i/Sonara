@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/* ─── Spotify 深色主题 ─── */
+:root {
+  --spotify-black: #121212;
+  --spotify-dark: #181818;
+  --spotify-card: #282828;
+  --spotify-hover: #333333;
+  --spotify-subtext: #a7a7a7;
+  --spotify-text: #ffffff;
+  --spotify-green: #1ed760;
+  --spotify-green-hover: #1fdf64;
+  --spotify-red: #e91429;
+  --spotify-blue: #509bf5;
+}
+
+@theme inline {
+  --color-spotify-black: var(--spotify-black);
+  --color-spotify-dark: var(--spotify-dark);
+  --color-spotify-card: var(--spotify-card);
+  --color-spotify-hover: var(--spotify-hover);
+  --color-spotify-subtext: var(--spotify-subtext);
+  --color-spotify-text: var(--spotify-text);
+  --color-spotify-green: var(--spotify-green);
+  --color-spotify-green-hover: var(--spotify-green-hover);
+  --color-spotify-red: var(--spotify-red);
+  --color-spotify-blue: var(--spotify-blue);
+  --color-background: var(--spotify-black);
+  --color-foreground: var(--spotify-text);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* 隐藏滚动条但保持滚动功能 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--spotify-hover);
+  border-radius: 4px;
+}
+
+/* 毛玻璃工具 */
+.glass {
+  background: rgba(24, 24, 24, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* 自定义动画 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+.animate-scale-in { animation: scaleIn 0.2s ease-out; }
+.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+body {
+  background: var(--spotify-black);
+  color: var(--spotify-text);
+  font-family: Arial, Helvetica, sans-serif;
+}

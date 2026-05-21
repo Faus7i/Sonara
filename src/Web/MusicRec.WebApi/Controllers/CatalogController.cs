@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using MusicRec.Catalog.Commands;
 using MusicRec.Catalog.DTOs;
 using MusicRec.Catalog.Queries;
@@ -24,6 +25,7 @@ public class CatalogController : ControllerBase
     /// 获取曲目详情
     /// </summary>
     [HttpGet("tracks/{id:guid}")]
+    [OutputCache(Duration = 600)]
     [ProducesResponseType(typeof(ApiResponse<TrackDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<TrackDto>>> GetTrack(Guid id)
@@ -52,6 +54,7 @@ public class CatalogController : ControllerBase
     /// 获取艺术家详情
     /// </summary>
     [HttpGet("artists/{id:guid}")]
+    [OutputCache(Duration = 600)]
     [ProducesResponseType(typeof(ApiResponse<ArtistDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<ArtistDto>>> GetArtist(Guid id)
@@ -80,6 +83,7 @@ public class CatalogController : ControllerBase
     /// 获取专辑详情
     /// </summary>
     [HttpGet("albums/{id:guid}")]
+    [OutputCache(Duration = 600)]
     [ProducesResponseType(typeof(ApiResponse<AlbumDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<AlbumDto>>> GetAlbum(Guid id)

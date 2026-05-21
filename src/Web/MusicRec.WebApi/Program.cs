@@ -1,20 +1,28 @@
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using MusicRec.AudioFeatures;
 using MusicRec.Catalog;
 using MusicRec.Identity;
 using MusicRec.Infrastructure;
+using MusicRec.Infrastructure.Caching;
 using MusicRec.Favorites;
 using MusicRec.Playlists;
 using MusicRec.Player;
 using MusicRec.Search;
 using MusicRec.UserBehavior;
+using MusicRec.Recommendation;
+using MusicRec.Discovery;
 using MusicRec.Shared;
 using MusicRec.Spotify;
+using MusicRec.WebApi.HealthChecks;
 using MusicRec.WebApi.Infrastructure;
 using MusicRec.WebApi.Middlewares;
 using Serilog;
@@ -95,6 +103,38 @@ builder.Services.AddSwaggerGen();
 // ─── 验证管道（全局注册一次，避免各模块重复注册导致多次执行）─
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
+// ─── 响应压缩 ──────────────────────────────────
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+        new[] { "application/json", "application/json; charset=utf-8" });
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+    options.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+    options.Level = CompressionLevel.Fastest);
+
+// ─── 输出缓存 ──────────────────────────────────
+builder.Services.AddOutputCache(options =>
+{
+    options.DefaultExpirationTimeSpan = TimeSpan.FromMinutes(10);
+});
+
+// ─── 健康检查 ──────────────────────────────────
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<MusicRecDbContext>("database", HealthStatus.Unhealthy)
+    .AddCheck<RedisHealthCheck>("redis", HealthStatus.Degraded);
+
+// ─── 缓存基础设施 ──────────────────────────────
+builder.Services.AddCaching(builder.Configuration);
+
+// ─── 推荐参数可配置化 ──────────────────────────
+builder.Services.Configure<MusicRec.Shared.RecommendationOptions>(
+    builder.Configuration.GetSection(MusicRec.Shared.RecommendationOptions.SectionName));
+
 // ─── Spotify 基础设施 ────────────────────────────
 builder.Services.AddSpotify();
 
@@ -107,12 +147,15 @@ builder.Services.AddPlayerModule();
 builder.Services.AddFavoritesModule();
 builder.Services.AddPlaylistModule();
 builder.Services.AddUserBehaviorModule();
+builder.Services.AddRecommendationModule();
+builder.Services.AddDiscoveryModule();
 
 var app = builder.Build();
 
 // ─── 中间件管道（顺序至关重要）────────────────────
 app.UseSerilogRequestLogging();       // 1. 请求日志
-app.UseMiddleware<GlobalExceptionMiddleware>(); // 2. 异常捕获（包裹后续所有中间件）
+app.UseMiddleware<GlobalExceptionMiddleware>(); // 2. 异常捕获
+app.UseResponseCompression();          // 3. 响应压缩（Gzip + Brotli）
 
 if (app.Environment.IsDevelopment())
 {
@@ -120,9 +163,31 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseAuthentication();              // 3. 认证
-app.UseAuthorization();               // 4. 授权
-app.MapControllers();                 // 5. 路由
+app.UseOutputCache();                 // 4. 输出缓存
+app.UseAuthentication();              // 5. 认证
+app.UseAuthorization();               // 6. 授权
+app.MapControllers();                 // 7. 路由
+
+// ─── 健康检查端点 ──────────────────────────────────
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+        var result = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description
+            }),
+            totalDurationMs = report.TotalDuration.TotalMilliseconds
+        }, JsonDefaults.CamelCaseOptions);
+        await context.Response.WriteAsync(result);
+    }
+});
 
 // ─── 自动应用 EF 迁移 ──────────────────────────────
 try

@@ -29,7 +29,23 @@
       "PowerShell(Get-Process *)",
       "PowerShell(New-Item *)",
       "WebSearch",
-      "WebFetch(domain:developer.spotify.com)"
+      "WebFetch(domain:developer.spotify.com)",
+      "PowerShell(git push *)",
+      "Bash(New-Item *)",
+      "Bash(dotnet build *)",
+      "PowerShell(Get-Service *)",
+      "Bash(timeout 3 bash -c 'echo > /dev/tcp/localhost/5000')",
+      "Bash(timeout 3 bash -c 'echo > /dev/tcp/localhost/5001')",
+      "Bash(dotnet run *)",
+      "Bash(echo \"PID=$!\")",
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Sonara\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(dir D:Sonara *)",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\Sonara\\\\src\" -Filter \"CatalogMapping.cs\" -Recurse | ForEach-Object { $_.FullName })",
+      "PowerShell(Start-Service *)",
+      "Bash(start *)"
     ]
   }
 }

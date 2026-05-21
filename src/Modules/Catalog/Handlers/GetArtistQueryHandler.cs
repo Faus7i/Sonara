@@ -18,6 +18,7 @@ public class GetArtistQueryHandler : IRequestHandler<GetArtistQuery, ArtistDto>
     public async Task<ArtistDto> Handle(GetArtistQuery request, CancellationToken ct)
     {
         var artist = await _db.Set<Artist>()
+            .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == request.ArtistId, ct);
 
         if (artist is null)

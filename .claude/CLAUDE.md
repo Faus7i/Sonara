@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-基于 .NET 平台的个性化音乐推荐系统 — 通过 Spotify Web API 获取歌曲与音频特征，实现混合推荐算法。后端 .NET 9 + C# 13，前端 Next.js + TypeScript（待搭建），数据库 SQL Server `.\SQLEXPRESS` / `MusicRecDb`。
+基于 .NET 平台的个性化音乐推荐系统 — 通过 Spotify Web API 获取歌曲与音频特征，实现混合推荐算法。后端 .NET 9 + C# 13，前端 Next.js 16 + React 19 + TypeScript，数据库 SQL Server `.\SQLEXPRESS` / `MusicRecDb`。Phase 1-6 全部完成，10 个后端模块 + 前端 8 页面 + Redis 双级缓存。
 
-> **进行中**：音频特征 API 正从 Spotify 原生端点迁移到 RapidAPI 第三方服务，详见根目录 `audio-features-api-migration.md`。
+> 音频特征 API 迁移方案详见 `audio-features-api-migration.md`。当前使用种子数据生成器（`POST /api/recommendations/seed`，23 个流派模板）模拟音频特征。
 
 ## 构建与运行
 
@@ -22,8 +22,11 @@ dotnet run --project src/Web/MusicRec.WebApi/MusicRec.WebApi.csproj
 dotnet ef migrations add <Name> -p src/BuildingBlocks/Infrastructure -s src/Web/MusicRec.WebApi
 dotnet ef database update -p src/BuildingBlocks/Infrastructure -s src/Web/MusicRec.WebApi
 
-# 前端（待搭建）
+# 前端
 cd frontend && npm install && npm run dev
+
+# 前端构建
+cd frontend && npm run build
 ```
 
 ## 架构：模块化单体 (Modular Monolith)
@@ -38,13 +41,17 @@ src/
 │   ├── Search/                   # 统一搜索（委托 Spotify API + 搜索历史）
 │   ├── Favorites/                # 收藏系统（UserLikes 幂等 CRUD）
 │   ├── Playlist/                 # 歌单系统（CRUD + 曲目排序 + 所有权保护）
-│   └── Player/                   # 播放控制（纯 API 适配层，无本地表）
+│   ├── Player/                   # 播放控制（纯 API 适配层，无本地表）
+│   ├── UserBehavior/             # 用户行为追踪（播放/跳过/事件 + 用户画像）
+│   ├── Recommendation/           # 推荐算法（混合推荐 + 相似曲目 + 种子数据）
+│   └── Discovery/                # 探索推荐（冷启动 + 70/20/10 探索分配）
 ├── BuildingBlocks/
-│   ├── Shared/                   # ApiResponse、异常、验证管道、密码哈希
+│   ├── Shared/                   # ApiResponse、异常、验证管道、密码哈希、ICacheService、CacheKeys
 │   ├── Abstractions/             # IEntity、IPasswordHasher
 │   ├── Contracts/                # 跨模块 MediatR 事件
-│   └── Infrastructure/           # MusicRecDbContext、EntityConfigurationRegistry
-└── Infrastructure/Spotify/       # Spotify API 适配器（OAuth + Token 缓存 + Polly 重试）
+│   └── Infrastructure/           # MusicRecDbContext、EntityConfigurationRegistry、HybridCacheService (L1+L2)
+├── Infrastructure/Spotify/       # Spotify API 适配器（OAuth + Token 缓存 + Polly 重试）
+├── frontend/                     # Next.js 前端（8 页面 + 7 API 模块 + 2 Zustand Store）
 ```
 
 ## 核心架构规则
@@ -65,9 +72,11 @@ src/
 14. **命名空间与类名冲突**：项目命名空间不得与其中的实体类同名（C# 编译器会优先将类名解析为命名空间）。典型解决：使用复数命名空间（如 `MusicRec.Playlists` 而非 `MusicRec.Playlist`），或在 csproj 中显式设置 `<RootNamespace>`。
 15. **DesignTimeDbContextFactory 注册**：`dotnet ef migrations` 使用 `IDesignTimeDbContextFactory`，不读取 `Program.cs` 中的 `AddXxxModule()`。新增模块时必须在 `DesignTimeDbContextFactory.CreateDbContext()` 中同步调用 `EntityConfigurationRegistry.Register(typeof(Xxx.DependencyInjection).Assembly)`，否则生成的迁移将为空。
 16. **Player 模块模式**：纯 API 适配层（无实体、无 EF 配置、不调用 `EntityConfigurationRegistry.Register()`），所有功能通过 `ISpotifyClient` 代理到外部 API。DI 仅需 `AddMediatR` + `AddValidatorsFromAssembly`。
+20. **零实体模块模式**：Recommendation、Discovery 模块无自有实体/表，所有结果在内存中计算。DI 中 `EntityConfigurationRegistry.Register()` 调用无害（程序集无配置时为空操作）。跨模块只读访问其他模块实体遵循规则 17。
 17. **跨模块只读数据访问**：Favorites/Playlist 需读取 Catalog 的 Track/Artist 实体进行 JOIN 查询。允许单向项目引用 + 严格限制为只读查询（通过共享 `_db.Set<T>()` 操作），禁止调用其他模块的 Command/Query/Handler。
 18. **幂等写操作**：收藏/取消收藏/添加曲目/移除曲目等操作应设计为幂等——重复操作不报错（已收藏→返回已有记录，未收藏删除→静默成功）。减少客户端状态判断复杂度。
 19. **所有权验证**：歌单/收藏等用户私有资源的写操作必须在 Handler 中验证 `UserId == 当前用户`，非所有者抛 `UnauthorizedException`。Controller 层不应承担此逻辑。
+21. **Catalog → AudioFeatures 跨模块引用**：曲目详情页需展示音频特征，Catalog 模块允许单向只读引用 AudioFeatures 模块（`<ProjectReference>`）。仅限 `GetTrackQueryHandler` 中查询 `TrackAudioFeature`（通过 `SpotifyTrackId` 业务键关联），禁止调用 AudioFeatures 模块的 Handler/Service。`TrackDto.AudioFeatures` 为可选参数（默认 null），导入等其他场景不填充。
 
 ## 关键设计模式
 
@@ -111,6 +120,53 @@ Favorites/Playlist 模块通过共享 `MusicRecDbContext` 的 `_db.Set<Track>()`
 - Handler 仅注入 `ISpotifyClient`，直接代理外部 API
 - 适用于任何"纯代理外部服务"的模块
 
+### 双级缓存 (L1 + L2 Hybrid Cache)
+
+`HybridCacheService` 实现 `ICacheService`，位于 `BuildingBlocks/Infrastructure/Caching/`：
+
+- **L1**：`IMemoryCache`（~100ns），**L2**：Redis `StackExchange.Redis`（~1ms）
+- **自动降级**：Redis 连接失败或未配置（`appsettings.json` 中 `RedisConnectionString: null`）→ 纯 L1 模式，系统正常运行
+- **缓存击穿保护**：`ConcurrentDictionary<string, SemaphoreSlim>` 防止同一 Key 大量并发穿透
+- **前缀失效**：L1 字典匹配 + L2 Redis SCAN，用于用户画像更新后批量清除推荐缓存
+- **Cache-Aside 扩展**：`GetOrCreateAsync<T>(key, factory)` — 命中返回，未命中调用工厂并写入
+- **集中式键管理**：所有缓存键通过 `CacheKeys` 静态类生成，禁止硬编码字符串
+- **接入范围**：4 个推荐/发现 Handler（GetRecommendations、GetSimilarTracks、GetDiscovery、GetColdStart）
+- **TTL 策略**：推荐 3min / 相似曲目 30min / 探索 10min / 冷启动 1h / 目录数据 1h
+
+### 前端架构 (Next.js App Router)
+
+```
+frontend/src/
+├── app/                    # 8 个页面路由（App Router），每个文件夹 = 一个路由
+│   ├── page.tsx            # /          首页（已登录→推荐，未登录→冷启动）
+│   ├── login/              # /login     登录
+│   ├── register/           # /register  注册
+│   ├── explore/            # /explore   探索推荐
+│   ├── search/             # /search    搜索
+│   ├── favorites/          # /favorites 收藏
+│   ├── playlists/          # /playlists 歌单
+│   └── tracks/[id]/        # /tracks/:id 曲目详情（10 维音频特征 + 相似曲目）
+├── components/
+│   ├── providers.tsx       # QueryClient + AuthInitializer（TanStack Query 全局配置）
+│   └── layout/             # MainLayout / Sidebar / BottomPlayer（Spotify 三栏布局）
+├── lib/
+│   ├── api-client.ts       # Axios 实例（JWT 拦截 + 响应解包 + 15s 超时）
+│   └── api/                # 7 个 API 模块（auth/catalog/discovery/favorites/playlists/recommendations/search）
+├── store/
+│   ├── auth-store.ts       # Zustand — 用户认证（login/register/logout + Token localStorage 持久化）
+│   └── ui-store.ts         # Zustand — UI 状态（侧边栏折叠等）
+└── types/api.ts            # 所有 TypeScript 类型（与后端 DTO 一致）
+```
+
+**前端架构规则**：
+- **组件职责**：页面 (`app/*/page.tsx`) 负责数据获取，展示组件可放 `components/`，跨页面共享
+- **状态管理**：认证状态和 UI 状态分离到独立 Store，避免不相关状态变化引起重渲染
+- **API 调用**：所有请求通过 `api-client.ts` 的 Axios 实例，禁止页面中直接 `fetch()` 或 `axios.`
+- **数据获取**：TanStack Query `useQuery` / `useMutation`，禁止在 `useEffect` 中手写数据获取
+- **认证检查**：`AuthInitializer`（`providers.tsx`）在应用启动时从 localStorage 恢复 Token 并验证
+- **动画**：Framer Motion，页面级动画（`initial/animate`）+ 交互动画（`whileHover`）+ 骨架屏（`animate-pulse`）
+- **API 地址配置**：`api-client.ts` 中 `baseURL` 指向后端（默认 `http://localhost:5000`），生产通过环境变量覆盖
+
 ## 技术栈约束
 
 | 层 | 技术 | 版本 | 禁止 |
@@ -124,8 +180,9 @@ Favorites/Playlist 模块通过共享 `MusicRecDbContext` 的 `_db.Set<Track>()`
 | 日志 | Serilog | 9.0.0 | — |
 | 认证 | JWT Bearer | 9.0.5 | Session/Cookie |
 | HTTP | IHttpClientFactory + Polly | 9.0.5 | 直接 new HttpClient() |
-| 前端 | Next.js, React, TypeScript | — | 其他框架 |
-| 样式 | TailwindCSS + Shadcn UI（Spotify 风格深色主题） | — | 其他 UI 库 |
+| 缓存 | StackExchange.Redis + IMemoryCache | 2.8.31 | 其他 Redis 库 |
+| 前端 | Next.js, React, TypeScript | 16.2 / 19.2 / ^5 | 其他框架 |
+| 样式 | TailwindCSS（Spotify 风格深色主题） | ^4 | 其他 UI 库 |
 | 动画 | Framer Motion | — | 其他动画库 |
 | 状态 | Zustand | — | Redux、Context |
 | 请求 | TanStack Query | — | 其他 |
@@ -145,7 +202,7 @@ Favorites/Playlist 模块通过共享 `MusicRecDbContext` 的 `_db.Set<Track>()`
 
 ## 推荐算法
 
-混合推荐公式（Phase 4-5 实现）：
+混合推荐公式（Phase 5 已实现）：
 
 ```
 FinalScore = 0.35 × AudioSimilarity + 0.25 × BehaviorScore
@@ -154,9 +211,13 @@ FinalScore = 0.35 × AudioSimilarity + 0.25 × BehaviorScore
 ```
 
 - 特征向量：`[energy, danceability, valence, tempo, acousticness]`（`TrackAudioFeature.ToVector()` 已实现，Tempo 除以 200 归一化到 [0,1]）
-- 相似度计算：余弦相似度 或 欧氏距离
-- 推荐结果 DTO 必须包含 `Reason` 字段
-- Phase 6 规划：增加 Redis 缓存层（当前使用 `IMemoryCache` 内存缓存）
+- 相似度计算：余弦相似度（`RecommendationCalculator.CosineSimilarity`）
+- **降级公式**（无音频特征时）：`0.30 × GenrePref + 0.25 × Behavior + 0.15 × Popularity + 0.20 × Freshness + 0.10 × 0.5`
+- **探索分配**（`GetRecommendationsQueryHandler`）：70% 高分 + 20% 相邻流派 + 10% 随机探索
+- **多样性去重**：每位艺术家最多 2 首曲目
+- **种子数据**（`POST /api/recommendations/seed`）：23 个流派模板 + 确定性随机生成模拟 `TrackAudioFeature`
+- 推荐结果 DTO 必须包含 `Reason` 字段（中文，如"因为你喜欢 {artist}"、"音频特征高度匹配"）
+- **推荐缓存**：4 个推荐/发现 Handler 通过 `ICacheService.GetOrCreateAsync` 接入双级缓存，用户画像更新时通过 `UserBehaviorUpdatedEventHandler` 前缀失效
 
 ## API 端点
 
@@ -203,6 +264,12 @@ FinalScore = 0.35 × AudioSimilarity + 0.25 × BehaviorScore
 | GET | `/api/user-behavior/stats` | JWT | 行为统计摘要 |
 | GET | `/api/user-behavior/profile` | JWT | 用户偏好画像 |
 | POST | `/api/user-behavior/profile/refresh` | JWT | 刷新用户画像 |
+| GET | `/api/recommendations?limit=20` | JWT | 个性化推荐列表（含 Score + Reason） |
+| GET | `/api/recommendations/similar/{trackId}?limit=10` | JWT | 相似曲目推荐 |
+| POST | `/api/recommendations/seed` | JWT | 生成模拟音频特征种子数据 |
+| GET | `/api/discovery?limit=20` | JWT | 探索推荐（70/20/10 分配） |
+| GET | `/api/discovery/cold-start?limit=20` | 可选 | 冷启动推荐（热度 + 流派多样性） |
+| GET | `/health` | 无 | 健康检查（database + redis） |
 
 ## 数据库表
 

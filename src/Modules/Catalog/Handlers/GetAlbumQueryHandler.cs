@@ -22,6 +22,7 @@ public class GetAlbumQueryHandler : IRequestHandler<GetAlbumQuery, AlbumDto>
             .Include(a => a.Tracks)
                 .ThenInclude(t => t.TrackArtists)
                     .ThenInclude(ta => ta.Artist)
+            .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == request.AlbumId, ct);
 
         if (album is null)
