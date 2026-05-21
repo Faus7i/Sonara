@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -86,6 +87,9 @@ builder.Services.AddControllers()
 // ─── Swagger ─────────────────────────────────────
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// ─── 验证管道（全局注册一次，避免各模块重复注册导致多次执行）─
+builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 // ─── Spotify 基础设施 ────────────────────────────
 builder.Services.AddSpotify();

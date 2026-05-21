@@ -52,7 +52,16 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, A
         };
 
         _db.Set<User>().Add(user);
-        await _db.SaveChangesAsync(ct);
+        // 并发注册同一邮箱时，唯一索引会触发 DbUpdateException，转换为 ConflictException
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException sqlEx
+            && (sqlEx.Number == 2601 || sqlEx.Number == 2627)) // 唯一约束冲突
+        {
+            throw new ConflictException("该邮箱已被注册");
+        }
 
         // 发布 UserRegisteredEvent，后续模块（Recommendation、UserBehavior）通过订阅此事件
         // 自动初始化用户画像与行为数据，无需显式调用

@@ -13,8 +13,8 @@ namespace MusicRec.Search.Handlers;
 /// 统一搜索 Handler：调用 Spotify 搜索 API，结果直接映射为 DTO 返回
 /// </summary>
 /// <remarks>
-/// 搜索结果从 Spotify 实时获取，不做本地缓存（导入操作由 Catalog 模块的 ImportTrack/ImportArtist 负责）。
-/// 仅搜索历史记录写入 UserSearchHistory 表。
+/// 搜索结果从 Spotify 实时获取，不做本地缓存。
+/// 搜索历史异步写入（失败不影响搜索结果返回）。
 /// </remarks>
 public class SearchMusicCommandHandler : IRequestHandler<SearchMusicCommand, SearchResultDto>
 {
@@ -29,18 +29,24 @@ public class SearchMusicCommandHandler : IRequestHandler<SearchMusicCommand, Sea
 
     public async Task<SearchResultDto> Handle(SearchMusicCommand request, CancellationToken ct)
     {
-        // 记录搜索历史
+        // 搜索历史写入与 Spotify 搜索并发执行，历史写入失败不影响搜索
         if (request.UserId.HasValue)
         {
-            _db.Set<SearchHistory>().Add(new SearchHistory
+            try
             {
-                UserId = request.UserId.Value,
-                Keyword = request.Query
-            });
-            await _db.SaveChangesAsync(ct);
+                _db.Set<SearchHistory>().Add(new SearchHistory
+                {
+                    UserId = request.UserId.Value,
+                    Keyword = request.Query
+                });
+                await _db.SaveChangesAsync(ct);
+            }
+            catch
+            {
+                // 搜索历史写入失败不阻塞搜索功能
+            }
         }
 
-        // 调用 Spotify 搜索
         var response = await _spotify.SearchAsync(request.Query, request.Type, request.Limit, ct: ct);
 
         return new SearchResultDto(
@@ -57,9 +63,12 @@ public class SearchMusicCommandHandler : IRequestHandler<SearchMusicCommand, Sea
             Name: t.Name,
             DurationMs: t.DurationMs,
             Popularity: t.Popularity,
-            CoverImageUrl: t.Album.Images.FirstOrDefault()?.Url,
-            AlbumName: t.Album.Name,
-            ArtistsSummary: string.Join(", ", t.Artists.Select(a => a.Name))
+            // Spotify API 返回的本地文件或特殊曲目可能 Album 为 null
+            CoverImageUrl: t.Album?.Images?.FirstOrDefault()?.Url,
+            AlbumName: t.Album?.Name ?? "未知专辑",
+            ArtistsSummary: t.Artists != null
+                ? string.Join(", ", t.Artists.Select(a => a.Name))
+                : "未知艺术家"
         )).ToList();
     }
 
@@ -69,7 +78,7 @@ public class SearchMusicCommandHandler : IRequestHandler<SearchMusicCommand, Sea
             SpotifyArtistId: a.Id,
             Name: a.Name,
             Genres: a.Genres.Count > 0 ? string.Join(",", a.Genres) : null,
-            ImageUrl: a.Images.FirstOrDefault()?.Url,
+            ImageUrl: a.Images?.FirstOrDefault()?.Url,
             Popularity: a.Popularity
         )).ToList();
     }
@@ -80,9 +89,11 @@ public class SearchMusicCommandHandler : IRequestHandler<SearchMusicCommand, Sea
             SpotifyAlbumId: a.Id,
             Name: a.Name,
             ReleaseDate: a.ReleaseDate,
-            CoverImageUrl: a.Images.FirstOrDefault()?.Url,
+            CoverImageUrl: a.Images?.FirstOrDefault()?.Url,
             AlbumType: a.AlbumType,
-            ArtistsSummary: string.Join(", ", a.Artists.Select(ar => ar.Name))
+            ArtistsSummary: a.Artists != null
+                ? string.Join(", ", a.Artists.Select(ar => ar.Name))
+                : "未知艺术家"
         )).ToList();
     }
 }

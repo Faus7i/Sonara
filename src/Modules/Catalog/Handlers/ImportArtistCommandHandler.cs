@@ -57,6 +57,9 @@ public class ImportArtistCommandHandler : IRequestHandler<ImportArtistCommand, A
         var topTracks = await _spotify.GetArtistTopTracksAsync(request.SpotifyArtistId, ct: ct);
         foreach (var trackObj in topTracks.Take(TopTracksLimit))
         {
+            // Spotify 本地文件或无专辑曲目的 Album 可能为 null，跳过此类曲目
+            if (trackObj.Album is null) continue;
+
             var trackExists = await _db.Set<Track>()
                 .AnyAsync(t => t.SpotifyTrackId == trackObj.Id, ct);
             if (trackExists) continue;

@@ -22,9 +22,8 @@ public static class DependencyInjection
         services.AddMediatR(cfg =>
             cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly));
 
-        // FluentValidation：自动扫描验证器 + 插入 MediatR 管道自动验证
+        // FluentValidation：自动扫描验证器
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
-        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
         // 密码哈希 — 单例，无状态
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
