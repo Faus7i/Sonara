@@ -1,5 +1,6 @@
 using Mapster;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using MusicRec.AudioFeatures.DTOs;
 using MusicRec.AudioFeatures.Entities;
@@ -41,7 +42,19 @@ public class GetAudioFeaturesQueryHandler : IRequestHandler<GetAudioFeaturesQuer
 
         var entity = af.Adapt<TrackAudioFeature>(); // Mapster 映射，消除 13 行手动赋值
         _db.Set<TrackAudioFeature>().Add(entity);
-        await _db.SaveChangesAsync(ct);
+
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            // 并发重复 → 重新查询返回已有数据
+            var existing = await _db.Set<TrackAudioFeature>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.SpotifyTrackId == request.SpotifyTrackId, ct);
+            return existing!.Adapt<AudioFeaturesDto>();
+        }
 
         return entity.Adapt<AudioFeaturesDto>();
     }

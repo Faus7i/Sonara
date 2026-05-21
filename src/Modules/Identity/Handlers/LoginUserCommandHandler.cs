@@ -38,12 +38,13 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, AuthRes
             .FirstOrDefaultAsync(u => u.Email == request.Email, ct);
 
         // 无论用户是否存在都执行哈希验证（使用 | 而非 ||），防止通过响应时间枚举已注册邮箱。
-        // user 为 null 时使用虚拟哈希值，确保 PBKDF2 仍被执行（约 100ms），攻击者无法区分
+        // user 为 null 时使用虚拟哈希值，确保 PBKDF2 仍被执行（约 100ms），攻击者无法区分。
+        // 注意：C# 编译器无法通过 | 运算符跟踪 null 确定性，故需 user! 抑制 CS8602。
         var storedHash = user?.PasswordHash ?? _dummyHash;
-        if (!_passwordHasher.Verify(request.Password, storedHash) || user is null)
+        if (!_passwordHasher.Verify(request.Password, storedHash) | user is null)
             throw new UnauthorizedException("邮箱或密码错误");
 
-        var (token, expiresAt) = _jwtService.GenerateToken(user.Id, user.Email);
+        var (token, expiresAt) = _jwtService.GenerateToken(user!.Id, user.Email);
         var profile = user.Adapt<UserProfileDto>();
 
         return new AuthResultDto(token, expiresAt, profile);

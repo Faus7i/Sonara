@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +5,7 @@ using MusicRec.Identity.Commands;
 using MusicRec.Identity.DTOs;
 using MusicRec.Identity.Queries;
 using MusicRec.Shared;
+using MusicRec.WebApi.Infrastructure;
 
 namespace MusicRec.WebApi.Controllers;
 
@@ -56,7 +56,7 @@ public class IdentityController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ApiResponse<UserProfileDto>>> GetProfile()
     {
-        var userId = GetUserId();
+        var userId = User.GetUserId();
         var result = await _sender.Send(new GetUserProfileQuery(userId));
         return Ok(ApiResponse<UserProfileDto>.Ok(result));
     }
@@ -72,20 +72,9 @@ public class IdentityController : ControllerBase
     public async Task<ActionResult<ApiResponse<UserProfileDto>>> UpdateProfile(
         [FromBody] UpdateProfileRequest request)
     {
-        var userId = GetUserId();
+        var userId = User.GetUserId();
         var result = await _sender.Send(
             new UpdateProfileCommand(userId, request.Nickname, request.AvatarUrl));
         return Ok(ApiResponse<UserProfileDto>.Ok(result, "资料更新成功"));
-    }
-
-    /// <summary>
-    /// 从 JWT 的 sub 声明中提取用户 ID
-    /// </summary>
-    private Guid GetUserId()
-    {
-        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (sub is null)
-            throw new UnauthorizedException("Token 无效或已过期");
-        return Guid.Parse(sub);
     }
 }

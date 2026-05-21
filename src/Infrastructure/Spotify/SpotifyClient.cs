@@ -117,8 +117,9 @@ public class SpotifyClient : ISpotifyClient
     public async Task<PlaybackStateObject?> GetPlaybackStateAsync(CancellationToken ct = default)
     {
         var response = await _http.GetAsync("me/player", ct);
-        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
-            return null; // 无活跃播放
+        // 204: 无活跃播放设备; 404: 无活跃播放会话（Client Credentials 无用户 scope）
+        if (response.StatusCode is System.Net.HttpStatusCode.NoContent or System.Net.HttpStatusCode.NotFound)
+            return null;
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<PlaybackStateObject>(SpotifyJsonDefaults.Options, ct);
     }
@@ -126,6 +127,9 @@ public class SpotifyClient : ISpotifyClient
     public async Task<List<DeviceObject>> GetAvailableDevicesAsync(CancellationToken ct = default)
     {
         var response = await _http.GetAsync("me/player/devices", ct);
+        // 404: 无活跃设备或当前认证模式无用户 scope
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return new List<DeviceObject>();
         response.EnsureSuccessStatusCode();
         var result = (await response.Content.ReadFromJsonAsync<DevicesResponse>(SpotifyJsonDefaults.Options, ct))!;
         return result.Devices;

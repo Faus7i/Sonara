@@ -1,5 +1,6 @@
 using Mapster;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using MusicRec.Catalog.Commands;
 using MusicRec.Catalog.DTOs;
@@ -46,9 +47,9 @@ public class ImportArtistCommandHandler : IRequestHandler<ImportArtistCommand, A
             Id = Guid.NewGuid(),
             SpotifyArtistId = artistObj.Id,
             Name = artistObj.Name,
-            // Genres 存为逗号分隔字符串 — Artist 的 genre 通常只有 1-5 个，无需独立关联表
-            Genres = artistObj.Genres.Count > 0 ? string.Join(",", artistObj.Genres) : null,
-            ImageUrl = artistObj.Images.FirstOrDefault()?.Url,
+            // Genres 可能为 null（Spotify API 对部分艺术家返回 "genres": null）
+            Genres = artistObj.Genres is { Count: > 0 } ? string.Join(",", artistObj.Genres) : null,
+            ImageUrl = artistObj.Images?.FirstOrDefault()?.Url,
             Popularity = artistObj.Popularity
         };
         _db.Set<Artist>().Add(artist);
@@ -74,7 +75,7 @@ public class ImportArtistCommandHandler : IRequestHandler<ImportArtistCommand, A
                     SpotifyAlbumId = trackObj.Album.Id,
                     Name = trackObj.Album.Name,
                     ReleaseDate = trackObj.Album.ReleaseDate,
-                    CoverImageUrl = trackObj.Album.Images.FirstOrDefault()?.Url,
+                    CoverImageUrl = trackObj.Album.Images?.FirstOrDefault()?.Url,
                     AlbumType = trackObj.Album.AlbumType,
                     TotalTracks = trackObj.Album.TotalTracks
                 };
@@ -90,11 +91,21 @@ public class ImportArtistCommandHandler : IRequestHandler<ImportArtistCommand, A
                 DurationMs = trackObj.DurationMs,
                 Popularity = trackObj.Popularity,
                 ReleaseDate = trackObj.Album.ReleaseDate,
-                CoverImageUrl = trackObj.Album.Images.FirstOrDefault()?.Url
+                CoverImageUrl = trackObj.Album.Images?.FirstOrDefault()?.Url
             });
         }
 
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            var alreadyExists = await _db.Set<Artist>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.SpotifyArtistId == request.SpotifyArtistId, ct);
+            return alreadyExists!.Adapt<ArtistDto>();
+        }
         return artist.Adapt<ArtistDto>();
     }
 }

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MusicRec.Infrastructure;
 using MusicRec.Search.Commands;
 using MusicRec.Search.DTOs;
@@ -20,11 +21,14 @@ public class SearchMusicCommandHandler : IRequestHandler<SearchMusicCommand, Sea
 {
     private readonly MusicRecDbContext _db;
     private readonly ISpotifyClient _spotify;
+    private readonly ILogger<SearchMusicCommandHandler> _logger;
 
-    public SearchMusicCommandHandler(MusicRecDbContext db, ISpotifyClient spotify)
+    public SearchMusicCommandHandler(MusicRecDbContext db, ISpotifyClient spotify,
+        ILogger<SearchMusicCommandHandler> logger)
     {
         _db = db;
         _spotify = spotify;
+        _logger = logger;
     }
 
     public async Task<SearchResultDto> Handle(SearchMusicCommand request, CancellationToken ct)
@@ -41,9 +45,10 @@ public class SearchMusicCommandHandler : IRequestHandler<SearchMusicCommand, Sea
                 });
                 await _db.SaveChangesAsync(ct);
             }
-            catch
+            catch (Exception ex)
             {
-                // 搜索历史写入失败不阻塞搜索功能
+                // 搜索历史写入失败不阻塞搜索功能，但记录日志便于排查
+                _logger.LogWarning(ex, "搜索历史写入失败（已忽略）：{Keyword}", request.Query);
             }
         }
 
@@ -77,7 +82,7 @@ public class SearchMusicCommandHandler : IRequestHandler<SearchMusicCommand, Sea
         return artists.Select(a => new SearchArtistDto(
             SpotifyArtistId: a.Id,
             Name: a.Name,
-            Genres: a.Genres.Count > 0 ? string.Join(",", a.Genres) : null,
+            Genres: a.Genres is { Count: > 0 } ? string.Join(",", a.Genres) : null,
             ImageUrl: a.Images?.FirstOrDefault()?.Url,
             Popularity: a.Popularity
         )).ToList();

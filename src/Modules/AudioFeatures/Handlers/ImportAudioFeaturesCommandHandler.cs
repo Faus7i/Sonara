@@ -1,5 +1,6 @@
 using Mapster;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using MusicRec.AudioFeatures.Commands;
 using MusicRec.AudioFeatures.DTOs;
@@ -63,8 +64,21 @@ public class ImportAudioFeaturesCommandHandler : IRequestHandler<ImportAudioFeat
             }
         }
 
-        // 保存后映射 DTO，确保 Id 为数据库最终值
-        await _db.SaveChangesAsync(ct);
+        // 保存后映射 DTO，确保 Id 为数据库最终值。
+        // try-catch 处理并发重复（SpotifyTrackId 唯一索引冲突 → 409 转为返回已有数据）
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            var existing = await _db.Set<TrackAudioFeature>()
+                .AsNoTracking()
+                .Where(af => request.SpotifyTrackIds.Contains(af.SpotifyTrackId))
+                .ToListAsync(ct);
+            return existing.Adapt<IReadOnlyList<AudioFeaturesDto>>();
+        }
+
         return entities.Adapt<IReadOnlyList<AudioFeaturesDto>>();
     }
 }

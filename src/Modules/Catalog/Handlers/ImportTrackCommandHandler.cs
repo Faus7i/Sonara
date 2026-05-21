@@ -1,5 +1,6 @@
 using Mapster;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using MusicRec.Catalog.Commands;
 using MusicRec.Catalog.DTOs;
@@ -43,11 +44,15 @@ public class ImportTrackCommandHandler : IRequestHandler<ImportTrackCommand, Tra
 
         var trackObj = await _spotify.GetTrackAsync(request.SpotifyTrackId, ct);
 
+        // Spotify 本地文件/特殊曲目的 Album 可能为 null，此类曲目无完整元数据，无法导入
+        if (trackObj.Album is null)
+            throw new NotFoundException($"曲目 {request.SpotifyTrackId} 无专辑信息（可能为本地文件），无法导入");
+
         // 导入或复用专辑
         var album = await GetOrCreateAlbumAsync(trackObj.Album, ct);
 
-        // 导入或复用艺术家
-        var artists = await GetOrCreateArtistsAsync(trackObj.Artists, ct);
+        // 导入或复用艺术家（Artists 可能为 null — Spotify 对特殊曲目返回 null）
+        var artists = await GetOrCreateArtistsAsync(trackObj.Artists ?? new(), ct);
 
         // 提前分配 Id，使 TrackArtist 能在同一次 SaveChanges 中关联
         var track = new Track
@@ -59,15 +64,28 @@ public class ImportTrackCommandHandler : IRequestHandler<ImportTrackCommand, Tra
             DurationMs = trackObj.DurationMs,
             Popularity = trackObj.Popularity,
             ReleaseDate = trackObj.Album.ReleaseDate,
-            CoverImageUrl = trackObj.Album.Images.FirstOrDefault()?.Url
+            CoverImageUrl = trackObj.Album.Images?.FirstOrDefault()?.Url
         };
         _db.Set<Track>().Add(track);
 
         foreach (var artist in artists)
             _db.Set<TrackArtist>().Add(new TrackArtist { TrackId = track.Id, ArtistId = artist.Id });
 
-        // 单次保存所有变更（Track + TrackArtists），一个数据库事务
-        await _db.SaveChangesAsync(ct);
+        // 单次保存所有变更（Track + TrackArtists），一个数据库事务。
+        // try-catch DbUpdateException 处理并发重复（SpotifyTrackId 唯一索引冲突 → 409）
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            var alreadyExists = await _db.Set<Track>()
+                .AsNoTracking()
+                .Include(t => t.Album)
+                .Include(t => t.TrackArtists).ThenInclude(ta => ta.Artist)
+                .FirstOrDefaultAsync(t => t.SpotifyTrackId == request.SpotifyTrackId, ct);
+            return alreadyExists!.Adapt<TrackDto>();
+        }
 
         // 填充导航属性用于 Mapster 映射
         track.Album = album;
@@ -87,7 +105,7 @@ public class ImportTrackCommandHandler : IRequestHandler<ImportTrackCommand, Tra
             SpotifyAlbumId = albumObj.Id,
             Name = albumObj.Name,
             ReleaseDate = albumObj.ReleaseDate,
-            CoverImageUrl = albumObj.Images.FirstOrDefault()?.Url,
+            CoverImageUrl = albumObj.Images?.FirstOrDefault()?.Url,
             AlbumType = albumObj.AlbumType,
             TotalTracks = albumObj.TotalTracks
         };
