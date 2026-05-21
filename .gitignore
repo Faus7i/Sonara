@@ -27,3 +27,8 @@ appsettings.*.local.json
 .idea/
 *.swp
 *.swo
+
+# 毕业设计资料（不推送）
+geminiChat.md
+毕业论文模板.docx
+毕业设计参考论文-*.pdf

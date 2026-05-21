@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 基于 .NET 平台的个性化音乐推荐系统 — 通过 Spotify Web API 获取歌曲与音频特征，实现混合推荐算法。后端 .NET 9 + C# 13，前端 Next.js + TypeScript（待搭建），数据库 SQL Server `.\SQLEXPRESS` / `MusicRecDb`。
 
+> **进行中**：音频特征 API 正从 Spotify 原生端点迁移到 RapidAPI 第三方服务，详见根目录 `audio-features-api-migration.md`。
+
 ## 构建与运行
 
 ```bash
@@ -123,7 +125,8 @@ Favorites/Playlist 模块通过共享 `MusicRecDbContext` 的 `_db.Set<Track>()`
 | 认证 | JWT Bearer | 9.0.5 | Session/Cookie |
 | HTTP | IHttpClientFactory + Polly | 9.0.5 | 直接 new HttpClient() |
 | 前端 | Next.js, React, TypeScript | — | 其他框架 |
-| 样式 | TailwindCSS + Shadcn UI | — | 其他 UI 库 |
+| 样式 | TailwindCSS + Shadcn UI（Spotify 风格深色主题） | — | 其他 UI 库 |
+| 动画 | Framer Motion | — | 其他动画库 |
 | 状态 | Zustand | — | Redux、Context |
 | 请求 | TanStack Query | — | 其他 |
 
@@ -136,6 +139,7 @@ Favorites/Playlist 模块通过共享 `MusicRecDbContext` 的 `_db.Set<Track>()`
 - 搜索结果从 Spotify 实时获取（不缓存），导入操作由 Catalog 模块单独处理
 - **Spotify JSON 空值安全**：API 对本地文件/特殊曲目可能返回 `"album": null` 或 `"artists": null`。映射 DTO 时必须使用 `?.` + `??` 防护，参考 `SearchMusicCommandHandler.MapTracks`
 - `ISpotifyClient` 共 19 个方法（8 个数据获取 + 11 个播放控制）。播放控制端点（`StartPlaybackAsync`、`PausePlaybackAsync` 等）需要 `user-modify-playback-state` / `user-read-playback-state` scope，当前 Client Credentials 模式不支持，API 骨架已就绪
+- **音频特征 API 迁移**：Spotify 已废弃 Audio Features 端点。`ISpotifyClient` 中的 `GetAudioFeaturesAsync` / `GetAudioFeaturesBatchAsync` 将在迁移后删除，改为通过 `ISpotifyExtendedClient`（RapidAPI Spotify Extended API）获取。迁移方案详见项目根目录 `audio-features-api-migration.md`。在迁移完成前，不要修改这两个方法的实现
 - **System.Text.Json 覆盖默认值**：反序列化 `null` JSON 时，即使属性有 `= new()` 初始化器也会被覆盖为 null。List 类型属性在使用前需加 `?? new()` 防护，参考 `GetAvailableDevicesQueryHandler`
 - **播放 API 序列化**：`SpotifyJsonDefaults.Options` 已设置 `DefaultIgnoreCondition = WhenWritingNull`，确保 PUT/POST body 不包含 null 字段。所有序列化使用 `JsonContent.Create(body, options: SpotifyJsonDefaults.Options)`
 
@@ -152,6 +156,7 @@ FinalScore = 0.35 × AudioSimilarity + 0.25 × BehaviorScore
 - 特征向量：`[energy, danceability, valence, tempo, acousticness]`（`TrackAudioFeature.ToVector()` 已实现，Tempo 除以 200 归一化到 [0,1]）
 - 相似度计算：余弦相似度 或 欧氏距离
 - 推荐结果 DTO 必须包含 `Reason` 字段
+- Phase 6 规划：增加 Redis 缓存层（当前使用 `IMemoryCache` 内存缓存）
 
 ## API 端点
 
