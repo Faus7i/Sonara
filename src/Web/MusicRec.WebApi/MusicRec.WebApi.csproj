@@ -22,6 +22,9 @@
     <ProjectReference Include="..\..\Modules\Catalog\MusicRec.Catalog.csproj" />
     <ProjectReference Include="..\..\Modules\AudioFeatures\MusicRec.AudioFeatures.csproj" />
     <ProjectReference Include="..\..\Modules\Search\MusicRec.Search.csproj" />
+    <ProjectReference Include="..\..\Modules\Player\MusicRec.Player.csproj" />
+    <ProjectReference Include="..\..\Modules\Favorites\MusicRec.Favorites.csproj" />
+    <ProjectReference Include="..\..\Modules\Playlist\MusicRec.Playlist.csproj" />
   </ItemGroup>
 
 </Project>

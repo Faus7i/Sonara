@@ -2,7 +2,34 @@
   "permissions": {
     "allow": [
       "Bash(git commit *)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "PowerShell(Get-ChildItem -Recurse -Depth 1 -Directory | ForEach-Object { $_.FullName.Replace\\(\"$PWD\\\\\", \"\"\\) })",
+      "Bash(Get-ChildItem -Path D:\\\\Sonara -Recurse -Depth 2)",
+      "Bash(Select-Object Mode, FullName)",
+      "PowerShell(dotnet --version)",
+      "PowerShell(npm *)",
+      "PowerShell(sqlcmd *)",
+      "PowerShell(dotnet new sln -n MusicRec -o D:\\\\Sonara --force)",
+      "PowerShell(dotnet sln D:\\\\Sonara\\\\MusicRec.sln add D:\\\\Sonara\\\\src\\\\BuildingBlocks\\\\Shared\\\\MusicRec.Shared.csproj)",
+      "PowerShell(dotnet sln D:\\\\Sonara\\\\MusicRec.sln add D:\\\\Sonara\\\\src\\\\BuildingBlocks\\\\Abstractions\\\\MusicRec.Abstractions.csproj)",
+      "PowerShell(dotnet sln D:\\\\Sonara\\\\MusicRec.sln add D:\\\\Sonara\\\\src\\\\BuildingBlocks\\\\Contracts\\\\MusicRec.Contracts.csproj)",
+      "PowerShell(dotnet sln D:\\\\Sonara\\\\MusicRec.sln add D:\\\\Sonara\\\\src\\\\BuildingBlocks\\\\Infrastructure\\\\MusicRec.Infrastructure.csproj)",
+      "PowerShell(dotnet sln D:\\\\Sonara\\\\MusicRec.sln add D:\\\\Sonara\\\\src\\\\Modules\\\\Identity\\\\MusicRec.Identity.csproj)",
+      "PowerShell(dotnet sln D:\\\\Sonara\\\\MusicRec.sln add D:\\\\Sonara\\\\src\\\\Infrastructure\\\\Spotify\\\\MusicRec.Spotify.csproj)",
+      "PowerShell(dotnet sln D:\\\\Sonara\\\\MusicRec.sln add D:\\\\Sonara\\\\src\\\\Web\\\\MusicRec.WebApi\\\\MusicRec.WebApi.csproj)",
+      "PowerShell(dotnet restore *)",
+      "PowerShell(dotnet package search *)",
+      "PowerShell(dotnet build *)",
+      "PowerShell(dotnet ef *)",
+      "PowerShell(Stop-Process *)",
+      "PowerShell(dotnet run *)",
+      "Bash(curl -s http://localhost:5000/swagger/index.html -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s http://localhost:5000/api/identity/register -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\",\"password\":\"123456\",\"nickname\":\"TestUser\"}')",
+      "Bash(curl *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(New-Item *)",
+      "WebSearch",
+      "WebFetch(domain:developer.spotify.com)"
     ]
   }
 }

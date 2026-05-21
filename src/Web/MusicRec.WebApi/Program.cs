@@ -8,6 +8,9 @@ using MusicRec.AudioFeatures;
 using MusicRec.Catalog;
 using MusicRec.Identity;
 using MusicRec.Infrastructure;
+using MusicRec.Favorites;
+using MusicRec.Playlists;
+using MusicRec.Player;
 using MusicRec.Search;
 using MusicRec.Shared;
 using MusicRec.Spotify;
@@ -99,6 +102,9 @@ builder.Services.AddIdentityModule();
 builder.Services.AddCatalogModule();
 builder.Services.AddAudioFeaturesModule();
 builder.Services.AddSearchModule();
+builder.Services.AddPlayerModule();
+builder.Services.AddFavoritesModule();
+builder.Services.AddPlaylistModule();
 
 var app = builder.Build();
 

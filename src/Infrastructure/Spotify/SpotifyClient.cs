@@ -95,4 +95,137 @@ public class SpotifyClient : ISpotifyClient
         var result = (await response.Content.ReadFromJsonAsync<ArtistTopTracksResponse>(SpotifyJsonDefaults.Options, ct))!;
         return result.Tracks;
     }
+
+    // ─── 播放控制 API ────────────────────────────────────────
+    // 注意：这些端点需要 user-modify-playback-state / user-read-playback-state scope，
+    // 当前 Client Credentials OAuth 流程仅获取了基础数据读取权限。
+    // Phase 3 先搭建 API 骨架，后续通过 Authorization Code + PKCE 扩展 scope 即可激活。
+    //
+    // Spotify Web API 播放端点映射：
+    //   GET  me/player              → 获取播放状态
+    //   PUT  me/player/play         → 开始/恢复播放
+    //   PUT  me/player/pause        → 暂停
+    //   POST me/player/next         → 下一首
+    //   POST me/player/previous     → 上一首
+    //   PUT  me/player/volume       → 音量
+    //   PUT  me/player/seek         → 跳转
+    //   PUT  me/player/repeat       → 重复模式
+    //   PUT  me/player/shuffle      → 随机播放
+    //   GET  me/player/devices      → 设备列表
+    //   PUT  me/player              → 转移播放
+
+    public async Task<PlaybackStateObject?> GetPlaybackStateAsync(CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync("me/player", ct);
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            return null; // 无活跃播放
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<PlaybackStateObject>(SpotifyJsonDefaults.Options, ct);
+    }
+
+    public async Task<List<DeviceObject>> GetAvailableDevicesAsync(CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync("me/player/devices", ct);
+        response.EnsureSuccessStatusCode();
+        var result = (await response.Content.ReadFromJsonAsync<DevicesResponse>(SpotifyJsonDefaults.Options, ct))!;
+        return result.Devices;
+    }
+
+    public async Task StartPlaybackAsync(string? deviceId = null, IReadOnlyList<string>? uris = null,
+        string? contextUri = null, int? positionMs = null, CancellationToken ct = default)
+    {
+        var url = BuildPlayerUrl("me/player/play", deviceId);
+
+        // 仅在有内容时传 body
+        object? body = null;
+        if (uris is { Count: > 0 } || contextUri is not null || positionMs is not null)
+        {
+            body = new
+            {
+                uris,
+                context_uri = contextUri,
+                offset = positionMs.HasValue ? new { position = 0 } : null,
+                position_ms = positionMs
+            };
+        }
+
+        var response = await SendJsonAsync(HttpMethod.Put, url, body, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task PausePlaybackAsync(string? deviceId = null, CancellationToken ct = default)
+    {
+        var url = BuildPlayerUrl("me/player/pause", deviceId);
+        var response = await _http.PutAsync(url, null, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task SkipToNextAsync(string? deviceId = null, CancellationToken ct = default)
+    {
+        var url = BuildPlayerUrl("me/player/next", deviceId);
+        var response = await _http.PostAsync(url, null, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task SkipToPreviousAsync(string? deviceId = null, CancellationToken ct = default)
+    {
+        var url = BuildPlayerUrl("me/player/previous", deviceId);
+        var response = await _http.PostAsync(url, null, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task SetVolumeAsync(int volumePercent, string? deviceId = null, CancellationToken ct = default)
+    {
+        var url = BuildPlayerUrl($"me/player/volume?volume_percent={volumePercent}", deviceId);
+        var response = await _http.PutAsync(url, null, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task SeekToPositionAsync(int positionMs, string? deviceId = null, CancellationToken ct = default)
+    {
+        var url = BuildPlayerUrl($"me/player/seek?position_ms={positionMs}", deviceId);
+        var response = await _http.PutAsync(url, null, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task SetRepeatModeAsync(string state, string? deviceId = null, CancellationToken ct = default)
+    {
+        var url = BuildPlayerUrl($"me/player/repeat?state={state}", deviceId);
+        var response = await _http.PutAsync(url, null, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task SetShuffleAsync(bool state, string? deviceId = null, CancellationToken ct = default)
+    {
+        var url = BuildPlayerUrl($"me/player/shuffle?state={state.ToString().ToLowerInvariant()}", deviceId);
+        var response = await _http.PutAsync(url, null, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task TransferPlaybackAsync(string deviceId, bool play = false, CancellationToken ct = default)
+    {
+        var body = new { device_ids = new[] { deviceId }, play };
+        var response = await SendJsonAsync(HttpMethod.Put, "me/player", body, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    // ─── 播放控制辅助方法 ──────────────────────────────
+
+    /// <summary>为播放 API URL 追加可选的 device_id 查询参数</summary>
+    private static string BuildPlayerUrl(string baseUrl, string? deviceId)
+    {
+        if (string.IsNullOrEmpty(deviceId))
+            return baseUrl;
+        var separator = baseUrl.Contains('?') ? '&' : '?';
+        return $"{baseUrl}{separator}device_id={Uri.EscapeDataString(deviceId)}";
+    }
+
+    /// <summary>发送带 JSON Body 的 HTTP 请求</summary>
+    private async Task<HttpResponseMessage> SendJsonAsync(HttpMethod method, string url, object? body, CancellationToken ct)
+    {
+        var request = new HttpRequestMessage(method, url);
+        if (body is not null)
+            request.Content = JsonContent.Create(body, options: SpotifyJsonDefaults.Options);
+        return await _http.SendAsync(request, ct);
+    }
 }

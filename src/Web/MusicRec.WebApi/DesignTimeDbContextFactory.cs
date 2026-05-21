@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using MusicRec.AudioFeatures;
 using MusicRec.Catalog;
+using MusicRec.Favorites;
 using MusicRec.Identity;
 using MusicRec.Infrastructure;
+using MusicRec.Playlists;
 using MusicRec.Search;
 
 namespace MusicRec.WebApi;
@@ -20,6 +22,8 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<MusicRecDb
         EntityConfigurationRegistry.Register(typeof(Catalog.DependencyInjection).Assembly);
         EntityConfigurationRegistry.Register(typeof(AudioFeatures.DependencyInjection).Assembly);
         EntityConfigurationRegistry.Register(typeof(Search.DependencyInjection).Assembly);
+        EntityConfigurationRegistry.Register(typeof(Favorites.DependencyInjection).Assembly);
+        EntityConfigurationRegistry.Register(typeof(Playlists.DependencyInjection).Assembly);
 
         var optionsBuilder = new DbContextOptionsBuilder<MusicRecDbContext>();
         optionsBuilder.UseSqlServer(
