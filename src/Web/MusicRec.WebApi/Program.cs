@@ -12,6 +12,7 @@ using MusicRec.Favorites;
 using MusicRec.Playlists;
 using MusicRec.Player;
 using MusicRec.Search;
+using MusicRec.UserBehavior;
 using MusicRec.Shared;
 using MusicRec.Spotify;
 using MusicRec.WebApi.Infrastructure;
@@ -105,6 +106,7 @@ builder.Services.AddSearchModule();
 builder.Services.AddPlayerModule();
 builder.Services.AddFavoritesModule();
 builder.Services.AddPlaylistModule();
+builder.Services.AddUserBehaviorModule();
 
 var app = builder.Build();
 

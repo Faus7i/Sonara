@@ -195,6 +195,14 @@ FinalScore = 0.35 × AudioSimilarity + 0.25 × BehaviorScore
 | PUT | `/api/player/repeat` | JWT | 重复模式 |
 | PUT | `/api/player/shuffle` | JWT | 随机播放 |
 | PUT | `/api/player/device` | JWT | 转移播放 |
+| POST | `/api/user-behavior/play` | JWT | 记录开始播放 |
+| PUT | `/api/user-behavior/play/{id}/finish` | JWT | 记录播放完成 |
+| PUT | `/api/user-behavior/play/{id}/skip` | JWT | 记录跳过 |
+| POST | `/api/user-behavior/events` | JWT | 记录行为事件（点击/停留） |
+| GET | `/api/user-behavior/history` | JWT | 播放历史（分页） |
+| GET | `/api/user-behavior/stats` | JWT | 行为统计摘要 |
+| GET | `/api/user-behavior/profile` | JWT | 用户偏好画像 |
+| POST | `/api/user-behavior/profile/refresh` | JWT | 刷新用户画像 |
 
 ## 数据库表
 
@@ -212,6 +220,9 @@ FinalScore = 0.35 × AudioSimilarity + 0.25 × BehaviorScore
 | `UserLikes` | Favorites | 收藏记录（UQ: UserId+TrackId） |
 | `Playlists` | Playlist | 歌单（Cascade 删除 PlaylistTracks） |
 | `PlaylistTracks` | Playlist | 歌单曲目关联（UQ: PlaylistId+TrackId） |
+| `UserPlayHistory` | UserBehavior | 播放历史（UserId+PlayedAt 索引） |
+| `UserBehaviorEvents` | UserBehavior | 行为事件（点击/停留/跳过） |
+| `UserProfiles` | UserBehavior | 用户偏好画像（UserId 主键一对一） |
 
 ## 开发行为守则
 

@@ -7,6 +7,7 @@ using MusicRec.Identity;
 using MusicRec.Infrastructure;
 using MusicRec.Playlists;
 using MusicRec.Search;
+using MusicRec.UserBehavior;
 
 namespace MusicRec.WebApi;
 
@@ -24,6 +25,7 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<MusicRecDb
         EntityConfigurationRegistry.Register(typeof(Search.DependencyInjection).Assembly);
         EntityConfigurationRegistry.Register(typeof(Favorites.DependencyInjection).Assembly);
         EntityConfigurationRegistry.Register(typeof(Playlists.DependencyInjection).Assembly);
+        EntityConfigurationRegistry.Register(typeof(UserBehavior.DependencyInjection).Assembly);
 
         var optionsBuilder = new DbContextOptionsBuilder<MusicRecDbContext>();
         optionsBuilder.UseSqlServer(

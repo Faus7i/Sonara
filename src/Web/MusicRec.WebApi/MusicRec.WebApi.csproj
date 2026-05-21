@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\Modules\Player\MusicRec.Player.csproj" />
     <ProjectReference Include="..\..\Modules\Favorites\MusicRec.Favorites.csproj" />
     <ProjectReference Include="..\..\Modules\Playlist\MusicRec.Playlist.csproj" />
+    <ProjectReference Include="..\..\Modules\UserBehavior\MusicRec.UserBehavior.csproj" />
   </ItemGroup>
 
 </Project>

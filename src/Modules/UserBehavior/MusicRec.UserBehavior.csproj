@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>MusicRec.UserBehavior</RootNamespace>
+    <AssemblyName>MusicRec.UserBehavior</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageReference Include="Mapster" Version="7.4.0" />
+    <PackageReference Include="MediatR" Version="12.5.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\Shared\MusicRec.Shared.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Contracts\MusicRec.Contracts.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Infrastructure\MusicRec.Infrastructure.csproj" />
+    <ProjectReference Include="..\Catalog\MusicRec.Catalog.csproj" />
+    <ProjectReference Include="..\AudioFeatures\MusicRec.AudioFeatures.csproj" />
+    <ProjectReference Include="..\Favorites\MusicRec.Favorites.csproj" />
+  </ItemGroup>
+</Project>
