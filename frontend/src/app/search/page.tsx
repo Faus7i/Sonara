@@ -5,17 +5,103 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { search } from '@/lib/api/search';
-import type { SearchType, Track } from '@/types/api';
+import type { SearchType, SearchTrack, SearchArtist, SearchAlbum } from '@/types/api';
+
+function TrackCard({ track, index }: { track: SearchTrack; index: number }) {
+  return (
+    <motion.div
+      key={track.spotifyTrackId}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.03 }}
+      className="bg-spotify-card hover:bg-spotify-hover rounded-md p-3 cursor-pointer transition-colors"
+    >
+      <div className="mb-3">
+        {track.coverImageUrl ? (
+          <img src={track.coverImageUrl} alt={track.name} className="w-full aspect-square object-cover rounded shadow-lg" loading="lazy" />
+        ) : (
+          <div className="w-full aspect-square bg-spotify-hover rounded flex items-center justify-center text-3xl">♪</div>
+        )}
+      </div>
+      <h4 className="font-medium text-sm truncate">{track.name}</h4>
+      <p className="text-xs text-spotify-subtext truncate mt-1">{track.artistsSummary}</p>
+      {track.albumName && <p className="text-xs text-spotify-subtext/60 truncate mt-0.5">{track.albumName}</p>}
+    </motion.div>
+  );
+}
+
+function ArtistCard({ artist, index }: { artist: SearchArtist; index: number }) {
+  return (
+    <motion.div
+      key={artist.spotifyArtistId}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.03 }}
+      className="bg-spotify-card hover:bg-spotify-hover rounded-md p-3 cursor-pointer transition-colors text-center"
+    >
+      <div className="mb-3">
+        {artist.imageUrl ? (
+          <img src={artist.imageUrl} alt={artist.name} className="w-full aspect-square object-cover rounded-full shadow-lg" loading="lazy" />
+        ) : (
+          <div className="w-full aspect-square bg-spotify-hover rounded-full flex items-center justify-center text-3xl">♪</div>
+        )}
+      </div>
+      <h4 className="font-medium text-sm truncate">{artist.name}</h4>
+      {artist.genres && <p className="text-xs text-spotify-subtext truncate mt-1">{artist.genres.replace(/,/g, ' / ')}</p>}
+      <p className="text-xs text-spotify-green/60 mt-0.5">热度 {artist.popularity}</p>
+    </motion.div>
+  );
+}
+
+function AlbumCard({ album, index }: { album: SearchAlbum; index: number }) {
+  return (
+    <motion.div
+      key={album.spotifyAlbumId}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.03 }}
+      className="bg-spotify-card hover:bg-spotify-hover rounded-md p-3 cursor-pointer transition-colors"
+    >
+      <div className="mb-3">
+        {album.coverImageUrl ? (
+          <img src={album.coverImageUrl} alt={album.name} className="w-full aspect-square object-cover rounded shadow-lg" loading="lazy" />
+        ) : (
+          <div className="w-full aspect-square bg-spotify-hover rounded flex items-center justify-center text-3xl">♪</div>
+        )}
+      </div>
+      <h4 className="font-medium text-sm truncate">{album.name}</h4>
+      <p className="text-xs text-spotify-subtext truncate mt-1">{album.artistsSummary}</p>
+      <p className="text-xs text-spotify-subtext/60 mt-0.5">{album.releaseDate} · {album.albumType}</p>
+    </motion.div>
+  );
+}
+
+function SkeletonGrid({ count = 10 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="bg-spotify-card rounded-md p-3">
+          <div className="w-full aspect-square bg-spotify-hover rounded animate-pulse mb-3" />
+          <div className="h-4 bg-spotify-hover rounded animate-pulse mb-2" />
+          <div className="h-3 bg-spotify-hover rounded animate-pulse w-2/3" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<SearchType>('track');
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError, error } = useQuery({
     queryKey: ['search', query, searchType],
-    queryFn: () => search(query, searchType, 20),
+    queryFn: () => search(query, searchType, 10),
     enabled: query.length >= 2,
+    retry: 1,
   });
+
+  const showSkeleton = query.length >= 2 && isFetching;
 
   return (
     <MainLayout>
@@ -47,45 +133,55 @@ export default function SearchPage() {
           <div className="text-center py-20 text-spotify-subtext">
             <p className="text-lg">输入关键词开始搜索</p>
           </div>
-        ) : isFetching ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="bg-spotify-card rounded-md p-3">
-                <div className="w-full aspect-square bg-spotify-hover rounded animate-pulse mb-3" />
-                <div className="h-4 bg-spotify-hover rounded animate-pulse mb-2" />
-                <div className="h-3 bg-spotify-hover rounded animate-pulse w-2/3" />
-              </div>
-            ))}
+        ) : isError ? (
+          <div className="text-center py-20">
+            <p className="text-lg text-spotify-red mb-2">搜索失败</p>
+            <p className="text-sm text-spotify-subtext">
+              {error instanceof Error ? error.message : '网络错误，请确保后端服务正在运行'}
+            </p>
           </div>
+        ) : showSkeleton ? (
+          <SkeletonGrid />
         ) : data ? (
           <div>
+            {/* 曲目结果 */}
             {data.tracks && data.tracks.length > 0 && (
               <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-3">曲目</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {data.tracks.map((track: Track, i: number) => (
-                    <motion.div
-                      key={track.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="bg-spotify-card hover:bg-spotify-hover rounded-md p-3 cursor-pointer transition-colors"
-                    >
-                      <div className="mb-3">
-                        {track.coverImageUrl ? (
-                          <img src={track.coverImageUrl} alt={track.name} className="w-full aspect-square object-cover rounded shadow-lg" loading="lazy" />
-                        ) : (
-                          <div className="w-full aspect-square bg-spotify-hover rounded flex items-center justify-center text-3xl">♪</div>
-                        )}
-                      </div>
-                      <h4 className="font-medium text-sm truncate">{track.name}</h4>
-                      <p className="text-xs text-spotify-subtext truncate mt-1">{track.artistsSummary}</p>
-                    </motion.div>
+                  {data.tracks.map((track, i) => (
+                    <TrackCard key={track.spotifyTrackId} track={track} index={i} />
                   ))}
                 </div>
               </div>
             )}
-            {!data.tracks?.length && (
+
+            {/* 艺术家结果 */}
+            {data.artists && data.artists.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-3">艺术家</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {data.artists.map((artist, i) => (
+                    <ArtistCard key={artist.spotifyArtistId} artist={artist} index={i} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 专辑结果 */}
+            {data.albums && data.albums.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-3">专辑</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {data.albums.map((album, i) => (
+                    <AlbumCard key={album.spotifyAlbumId} album={album} index={i} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 无结果 */}
+            {!data.tracks?.length && !data.artists?.length && !data.albums?.length && (
               <div className="text-center py-10 text-spotify-subtext">
                 <p>没有找到结果</p>
               </div>

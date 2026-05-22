@@ -126,17 +126,45 @@ export interface UserProfile {
  */
 export type SearchType = 'track' | 'artist' | 'album';
 
+export interface SearchTrack {
+  spotifyTrackId: string;
+  name: string;
+  durationMs: number;
+  popularity: number;
+  coverImageUrl: string | null;
+  albumName: string;
+  artistsSummary: string;
+}
+
+export interface SearchArtist {
+  spotifyArtistId: string;
+  name: string;
+  genres: string | null;
+  imageUrl: string | null;
+  popularity: number;
+}
+
+export interface SearchAlbum {
+  spotifyAlbumId: string;
+  name: string;
+  releaseDate: string;
+  coverImageUrl: string | null;
+  albumType: string;
+  artistsSummary: string;
+}
+
 export interface SearchResult {
-  tracks: Track[];
-  artists: ArtistBrief[];
-  albums: AlbumBrief[];
+  tracks: SearchTrack[];
+  artists: SearchArtist[];
+  albums: SearchAlbum[];
 }
 
 /**
  * 授权
  */
 export interface AuthResponse {
-  token: string;
+  accessToken: string;
+  expiresAt: string;
   user: User;
 }
 

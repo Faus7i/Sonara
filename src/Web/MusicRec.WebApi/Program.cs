@@ -103,6 +103,20 @@ builder.Services.AddSwaggerGen();
 // ─── 验证管道（全局注册一次，避免各模块重复注册导致多次执行）─
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
+// ─── CORS（前端跨域访问）────────────────────
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(
+                builder.Configuration["Cors:FrontendOrigin"] ?? "http://localhost:3000"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
 // ─── 响应压缩 ──────────────────────────────────
 builder.Services.AddResponseCompression(options =>
 {
@@ -156,6 +170,7 @@ var app = builder.Build();
 app.UseSerilogRequestLogging();       // 1. 请求日志
 app.UseMiddleware<GlobalExceptionMiddleware>(); // 2. 异常捕获
 app.UseResponseCompression();          // 3. 响应压缩（Gzip + Brotli）
+app.UseCors("AllowFrontend");           // 4. 跨域请求
 
 if (app.Environment.IsDevelopment())
 {
@@ -163,10 +178,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseOutputCache();                 // 4. 输出缓存
-app.UseAuthentication();              // 5. 认证
-app.UseAuthorization();               // 6. 授权
-app.MapControllers();                 // 7. 路由
+app.UseOutputCache();                 // 5. 输出缓存
+app.UseAuthentication();              // 6. 认证
+app.UseAuthorization();               // 7. 授权
+app.MapControllers();                 // 8. 路由
 
 // ─── 健康检查端点 ──────────────────────────────────
 app.MapHealthChecks("/health", new HealthCheckOptions

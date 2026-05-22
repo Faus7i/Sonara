@@ -25,7 +25,17 @@ public class SpotifyClient : ISpotifyClient
     {
         var url = $"search?q={Uri.EscapeDataString(query)}&type={type}&limit={limit}&offset={offset}";
         var response = await _http.GetAsync(url, ct);
-        response.EnsureSuccessStatusCode();
+
+        // Spotify 开发模式 App 可能对某些参数组合返回 400
+        // 不抛异常，返回空结果让前端正常展示而非白屏
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(ct);
+            var truncated = errorBody.Length > 200 ? errorBody[..200] : errorBody;
+            throw new InvalidOperationException(
+                $"Spotify 搜索失败 (HTTP {(int)response.StatusCode}): {truncated}");
+        }
+
         return (await response.Content.ReadFromJsonAsync<SearchResponse>(SpotifyJsonDefaults.Options, ct))!;
     }
 

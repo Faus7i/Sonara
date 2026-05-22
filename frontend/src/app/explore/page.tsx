@@ -1,11 +1,11 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { RefreshCw, Database } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuthStore } from '@/store/auth-store';
-import { getDiscovery } from '@/lib/api/discovery';
-import { getColdStart } from '@/lib/api/discovery';
+import { getDiscovery, getColdStart, seedTracks } from '@/lib/api/discovery';
 import type { DiscoveryResult, Track } from '@/types/api';
 
 function TrackCard({ track, index }: { track: Track; index: number }) {
@@ -35,27 +35,65 @@ function TrackCard({ track, index }: { track: Track; index: number }) {
 export default function ExplorePage() {
   const { isAuthenticated } = useAuthStore();
 
-  const { data: discovery, isLoading } = useQuery({
+  const { data: discovery, isLoading, isFetching: isFetchingDiscovery, refetch: refetchDiscovery } = useQuery({
     queryKey: ['discovery', 20],
     queryFn: () => getDiscovery(20),
     enabled: isAuthenticated,
   });
 
-  const { data: coldStart, isLoading: coldLoading } = useQuery({
+  const { data: coldStart, isLoading: coldLoading, isFetching: isFetchingCold, refetch: refetchColdStart } = useQuery({
     queryKey: ['cold-start-explore', 20],
     queryFn: () => getColdStart(20),
     enabled: !isAuthenticated,
   });
 
+  const seedMutation = useMutation({
+    mutationFn: seedTracks,
+    onSuccess: () => {
+      if (isAuthenticated) {
+        refetchDiscovery();
+      } else {
+        refetchColdStart();
+      }
+    },
+  });
+
   const tracks = (discovery || coldStart || []) as Track[];
   const loading = isLoading || coldLoading;
+  const isRefreshing = isFetchingDiscovery || isFetchingCold;
 
   return (
     <MainLayout>
       <div className="p-6 max-w-screen-xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <h2 className="text-2xl font-bold">探索新音乐</h2>
-          <p className="text-spotify-subtext mt-1 text-sm">发现不同流派和风格的音乐</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">探索新音乐</h2>
+              <p className="text-spotify-subtext mt-1 text-sm">发现不同流派和风格的音乐</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => seedMutation.mutate()}
+                disabled={seedMutation.isPending}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-spotify-card hover:bg-spotify-hover rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="生成种子数据（约 140 首曲目，覆盖 23 个流派）"
+              >
+                <Database size={16} className={seedMutation.isPending ? 'animate-spin' : ''} />
+                {seedMutation.isPending ? '生成中...' : '生成种子数据'}
+              </button>
+              <button
+                onClick={() => {
+                  if (isAuthenticated) refetchDiscovery();
+                  else refetchColdStart();
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-spotify-green text-black font-semibold rounded-full hover:bg-spotify-green/80 transition-colors"
+                title="刷新推荐结果"
+              >
+                <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+                刷新推荐
+              </button>
+            </div>
+          </div>
         </motion.div>
 
         {loading ? (

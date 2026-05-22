@@ -27,9 +27,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const result = await authApi.login(data);
-      localStorage.setItem('auth-token', result.token);
+      localStorage.setItem('auth-token', result.accessToken);
       localStorage.setItem('auth-user', JSON.stringify(result.user));
-      set({ user: result.user, token: result.token, isAuthenticated: true });
+      set({ user: result.user, token: result.accessToken, isAuthenticated: true });
     } finally {
       set({ isLoading: false });
     }
@@ -39,9 +39,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const result = await authApi.register(data);
-      localStorage.setItem('auth-token', result.token);
+      localStorage.setItem('auth-token', result.accessToken);
       localStorage.setItem('auth-user', JSON.stringify(result.user));
-      set({ user: result.user, token: result.token, isAuthenticated: true });
+      set({ user: result.user, token: result.accessToken, isAuthenticated: true });
     } finally {
       set({ isLoading: false });
     }
