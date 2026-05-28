@@ -42,8 +42,21 @@ public class GetColdStartQueryHandler : IRequestHandler<GetColdStartQuery, IRead
     {
         var cacheKey = CacheKeys.ColdStart(request.Limit);
 
+        // forceRefresh 时跳过缓存，强制重新计算
+        if (request.ForceRefresh)
+        {
+            return await ComputeColdStart(request, ct);
+        }
+
         return await _cache.GetOrCreateAsync<IReadOnlyList<DiscoveryResultDto>>(cacheKey, async () =>
         {
+            return await ComputeColdStart(request, ct);
+        }, TimeSpan.FromMinutes(5), ct);
+    }
+
+    private async Task<IReadOnlyList<DiscoveryResultDto>> ComputeColdStart(
+        GetColdStartQuery request, CancellationToken ct)
+    {
         // 冷启动不依赖用户数据，request.UserId 仅保留供后续日志/分析使用
         // 加载热门候选曲目
         var candidates = await _db.Set<Track>()
@@ -58,7 +71,7 @@ public class GetColdStartQueryHandler : IRequestHandler<GetColdStartQuery, IRead
         if (candidates.Count == 0)
             return Array.Empty<DiscoveryResultDto>();
 
-        // 冷启动：热度 + 流派多样性
+        // 冷启动：热度 + 流派多样性（DiscoveryEngine.ColdStart 内部已使用 Random.Shared 打乱流派顺序）
         var discoveries = DiscoveryEngine.ColdStart(candidates, request.Limit);
 
         return discoveries.Select(d =>
@@ -75,8 +88,8 @@ public class GetColdStartQueryHandler : IRequestHandler<GetColdStartQuery, IRead
                 .ToList() ?? new List<string>();
 
             return new DiscoveryResultDto(
-                TrackId: track.Id,
-                TrackName: track.Name,
+                Id: track.Id,
+                Name: track.Name,
                 CoverImageUrl: track.CoverImageUrl,
                 DurationMs: track.DurationMs,
                 Popularity: track.Popularity,
@@ -86,6 +99,5 @@ public class GetColdStartQueryHandler : IRequestHandler<GetColdStartQuery, IRead
                 Genres: genres
             );
         }).ToList();
-        }, TimeSpan.FromHours(1), ct);
     }
 }

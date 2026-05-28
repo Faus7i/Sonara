@@ -28,10 +28,10 @@ public class RecommendationController : ControllerBase
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<RecommendationResultDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<RecommendationResultDto>>>> GetRecommendations(
-        [FromQuery] int limit = 20)
+        [FromQuery] int limit = 20, [FromQuery] bool forceRefresh = false)
     {
         var userId = User.GetUserId();
-        var result = await _sender.Send(new GetRecommendationsQuery(userId, limit));
+        var result = await _sender.Send(new GetRecommendationsQuery(userId, limit, forceRefresh));
         return Ok(ApiResponse<IReadOnlyList<RecommendationResultDto>>.Ok(result));
     }
 

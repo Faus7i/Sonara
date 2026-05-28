@@ -42,7 +42,20 @@ apiClient.interceptors.response.use(
         window.location.href = '/login';
       }
     }
-    return Promise.reject(error.response?.data || error);
+
+    // 统一包装为 Error 实例，确保各页面 instanceof Error 检查通过
+    const data = error.response?.data;
+    if (data && typeof data === 'object' && 'message' in data) {
+      const err = new Error(data.message as string);
+      if ('errors' in data) {
+        (err as unknown as Record<string, unknown>).errors = data.errors;
+      }
+      return Promise.reject(err);
+    }
+    if (error instanceof Error) {
+      return Promise.reject(error);
+    }
+    return Promise.reject(new Error(error?.message || '网络错误，请确保后端服务正在运行'));
   }
 );
 

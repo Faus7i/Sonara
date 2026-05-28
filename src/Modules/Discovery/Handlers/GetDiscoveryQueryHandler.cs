@@ -105,8 +105,8 @@ public class GetDiscoveryQueryHandler : IRequestHandler<GetDiscoveryQuery, IRead
                 .ToList() ?? new List<string>();
 
             return new DiscoveryResultDto(
-                TrackId: track.Id,
-                TrackName: track.Name,
+                Id: track.Id,
+                Name: track.Name,
                 CoverImageUrl: track.CoverImageUrl,
                 DurationMs: track.DurationMs,
                 Popularity: track.Popularity,

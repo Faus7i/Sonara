@@ -50,8 +50,21 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
     {
         var cacheKey = CacheKeys.Recommendation(request.UserId, request.Limit);
 
+        // forceRefresh 时跳过缓存，强制重新计算
+        if (request.ForceRefresh)
+        {
+            return await ComputeRecommendations(request, ct);
+        }
+
         return await _cache.GetOrCreateAsync<IReadOnlyList<RecommendationResultDto>>(cacheKey, async () =>
         {
+            return await ComputeRecommendations(request, ct);
+        }, TimeSpan.FromMinutes(3), ct);
+    }
+
+    private async Task<IReadOnlyList<RecommendationResultDto>> ComputeRecommendations(
+        GetRecommendationsQuery request, CancellationToken ct)
+    {
         // ── 阶段 1：加载用户画像 ─────────────────────
         var profile = await _db.Set<UserProfile>()
             .FirstOrDefaultAsync(p => p.UserId == request.UserId, ct);
@@ -127,7 +140,8 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
                 var popularity = RecommendationCalculator.ComputePopularityScore(track.Popularity);
 
                 score = 0.35 * audioSim + 0.25 * behavior + 0.15 * genrePref
-                      + 0.10 * freshness + 0.10 * 0.5 + 0.05 * popularity;
+                      + 0.10 * freshness + 0.10 * 0.5 + 0.05 * popularity
+                      + (Random.Shared.NextDouble() - 0.5) * 0.02; // 随机抖动 ±0.01，打破确定性排序
 
                 reason = RecommendationCalculator.DetermineReason(
                     track, af, favoriteGenres, likedArtistSet, userVector);
@@ -142,7 +156,8 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
                 var popularity = RecommendationCalculator.ComputePopularityScore(track.Popularity);
 
                 score = 0.30 * genrePref + 0.25 * behavior + 0.15 * popularity
-                      + 0.20 * freshness + 0.10 * 0.5;
+                      + 0.20 * freshness + 0.10 * 0.5
+                      + (Random.Shared.NextDouble() - 0.5) * 0.02; // 随机抖动 ±0.01
 
                 reason = $"风格匹配 · {track.TrackGenres?.FirstOrDefault()?.Genre?.Name ?? "综合推荐"}";
             }
@@ -158,7 +173,6 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
 
         // ── 阶段 8：多样性去重 + 映射 DTO ──────────────
         return ApplyDiversityAndMap(finalSelection, request.Limit);
-        }, TimeSpan.FromMinutes(3), ct);
     }
 
     /// <summary>
@@ -241,8 +255,8 @@ public class GetRecommendationsQueryHandler : IRequestHandler<GetRecommendations
                 .ToList() ?? new List<string>();
 
             result.Add(new RecommendationResultDto(
-                TrackId: track.Id,
-                TrackName: track.Name,
+                Id: track.Id,
+                Name: track.Name,
                 CoverImageUrl: track.CoverImageUrl,
                 DurationMs: track.DurationMs,
                 Popularity: track.Popularity,

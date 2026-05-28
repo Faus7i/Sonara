@@ -31,6 +31,13 @@ public interface ISpotifyClient
     /// <summary>获取艺术家热门曲目</summary>
     Task<List<TrackObject>> GetArtistTopTracksAsync(string spotifyId, string? market = null, CancellationToken ct = default);
 
+    /// <summary>获取可用流派种子列表（用于推荐 API 的 seed_genres 参数）</summary>
+    Task<AvailableGenresResponse> GetAvailableGenresAsync(CancellationToken ct = default);
+
+    /// <summary>基于种子流派获取推荐曲目（最多 5 个种子流派）</summary>
+    Task<RecommendationsResponse> GetRecommendationsAsync(
+        List<string> seedGenres, int limit = 20, CancellationToken ct = default);
+
     // ─── 播放控制 API（需要 user-modify-playback-state / user-read-playback-state scope）───
 
     /// <summary>获取当前播放状态（含设备、进度、当前曲目）</summary>

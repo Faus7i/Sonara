@@ -6,7 +6,7 @@ export async function getDiscovery(limit = 20): Promise<DiscoveryResult[]> {
 }
 
 export async function getColdStart(limit = 20): Promise<DiscoveryResult[]> {
-  return apiClient.get('/discovery/cold-start', { params: { limit } });
+  return apiClient.get('/discovery/cold-start', { params: { limit, _t: Date.now() } });
 }
 
 export interface SeedTracksResult {

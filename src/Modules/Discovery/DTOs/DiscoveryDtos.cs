@@ -5,8 +5,8 @@ namespace MusicRec.Discovery.DTOs;
 /// 与 RecommendationResultDto 区分：无 Score 字段，使用 DiscoveryReason
 /// </summary>
 public record DiscoveryResultDto(
-    Guid TrackId,
-    string TrackName,
+    Guid Id,
+    string Name,
     string? CoverImageUrl,
     int DurationMs,
     int Popularity,

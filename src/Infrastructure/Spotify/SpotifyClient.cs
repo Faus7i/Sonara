@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Microsoft.Extensions.Logging;
 using MusicRec.Spotify.Models;
 
 namespace MusicRec.Spotify;
@@ -14,26 +15,30 @@ namespace MusicRec.Spotify;
 public class SpotifyClient : ISpotifyClient
 {
     private readonly HttpClient _http;
+    private readonly ILogger<SpotifyClient> _logger;
 
-    public SpotifyClient(HttpClient http)
+    public SpotifyClient(HttpClient http, ILogger<SpotifyClient> logger)
     {
         _http = http;
+        _logger = logger;
     }
 
     public async Task<SearchResponse> SearchAsync(
         string query, string type, int limit = 20, int offset = 0, CancellationToken ct = default)
     {
-        var url = $"search?q={Uri.EscapeDataString(query)}&type={type}&limit={limit}&offset={offset}";
+        // Spotify 开发模式 App 限制单次搜索最多 10 条结果
+        var safeLimit = Math.Min(limit, 10);
+        var url = $"search?q={Uri.EscapeDataString(query)}&type={type}&limit={safeLimit}&offset={offset}&market=US";
         var response = await _http.GetAsync(url, ct);
 
         // Spotify 开发模式 App 可能对某些参数组合返回 400
-        // 不抛异常，返回空结果让前端正常展示而非白屏
+        // 返回空结果优雅降级，而非抛异常导致前端白屏
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
-            var truncated = errorBody.Length > 200 ? errorBody[..200] : errorBody;
-            throw new InvalidOperationException(
-                $"Spotify 搜索失败 (HTTP {(int)response.StatusCode}): {truncated}");
+            _logger.LogWarning("Spotify 搜索返回 {StatusCode}: query={Query}, body={Error}",
+                (int)response.StatusCode, query, errorBody.Length > 300 ? errorBody[..300] : errorBody);
+            return new SearchResponse();
         }
 
         return (await response.Content.ReadFromJsonAsync<SearchResponse>(SpotifyJsonDefaults.Options, ct))!;
@@ -104,6 +109,23 @@ public class SpotifyClient : ISpotifyClient
         response.EnsureSuccessStatusCode();
         var result = (await response.Content.ReadFromJsonAsync<ArtistTopTracksResponse>(SpotifyJsonDefaults.Options, ct))!;
         return result.Tracks;
+    }
+
+    public async Task<AvailableGenresResponse> GetAvailableGenresAsync(CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync("recommendations/available-genre-seeds", ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<AvailableGenresResponse>(SpotifyJsonDefaults.Options, ct))!;
+    }
+
+    public async Task<RecommendationsResponse> GetRecommendationsAsync(
+        List<string> seedGenres, int limit = 20, CancellationToken ct = default)
+    {
+        var genres = string.Join(",", seedGenres.Take(5));
+        var url = $"recommendations?seed_genres={genres}&limit={limit}";
+        var response = await _http.GetAsync(url, ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<RecommendationsResponse>(SpotifyJsonDefaults.Options, ct))!;
     }
 
     // ─── 播放控制 API ────────────────────────────────────────

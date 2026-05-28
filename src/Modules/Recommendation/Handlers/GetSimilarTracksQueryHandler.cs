@@ -148,8 +148,8 @@ public class GetSimilarTracksQueryHandler : IRequestHandler<GetSimilarTracksQuer
                 .ToList() ?? new List<string>();
 
             return new RecommendationResultDto(
-                TrackId: track.Id,
-                TrackName: track.Name,
+                Id: track.Id,
+                Name: track.Name,
                 CoverImageUrl: track.CoverImageUrl,
                 DurationMs: track.DurationMs,
                 Popularity: track.Popularity,

@@ -31,6 +31,7 @@ async function proxy(request: Request, _method: string) {
       body: request.method !== 'GET' && request.method !== 'HEAD'
         ? await request.text()
         : undefined,
+      cache: 'no-store',
     });
 
     const data = await res.json();

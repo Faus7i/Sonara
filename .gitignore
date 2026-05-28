@@ -32,3 +32,7 @@ appsettings.*.local.json
 geminiChat.md
 毕业论文模板.docx
 毕业设计参考论文-*.pdf
+毕业论文/
+
+# WorkBuddy 工作记录（不推送）
+.workbuddy/

@@ -6,7 +6,7 @@ namespace MusicRec.Recommendation.Queries;
 /// <summary>
 /// 个性化推荐查询 — 基于用户画像、播放历史、收藏计算混合推荐
 /// </summary>
-public record GetRecommendationsQuery(Guid UserId, int Limit = 20)
+public record GetRecommendationsQuery(Guid UserId, int Limit = 20, bool ForceRefresh = false)
     : IRequest<IReadOnlyList<RecommendationResultDto>>;
 
 /// <summary>
